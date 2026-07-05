@@ -1,8 +1,8 @@
-import { Calendar, History, User, Home } from "lucide-react";
+import { Calendar, History, User, Home, Star } from "lucide-react";
 
 interface SidebarProps {
-  activePage?: 'dashboard' | 'reservations' | 'historique' | 'profile';
-  onPageChange?: (page: 'dashboard' | 'reservations' | 'historique' | 'profile') => void;
+  activePage?: 'dashboard' | 'reservations' | 'historique' | 'profile' | 'avis';
+  onPageChange?: (page: 'dashboard' | 'reservations' | 'historique' | 'profile' | 'avis') => void;
   onLogout?: () => void;
 }
 
@@ -42,6 +42,13 @@ export default function Sidebar({ activePage = 'reservations', onPageChange, onL
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activePage === 'profile' ? 'bg-amber-50 text-amber-600 font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}>
           <User className="w-5 h-5" />
           <span>Mon profil</span>
+        </button>
+
+        <button 
+          onClick={() => onPageChange?.('avis')} 
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activePage === 'avis' ? 'bg-amber-50 text-amber-600 font-medium shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}>
+          <Star className="w-5 h-5" />
+          <span>Mes avis</span>
         </button>
       </nav>
 

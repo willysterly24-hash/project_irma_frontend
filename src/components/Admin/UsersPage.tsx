@@ -1,19 +1,51 @@
-import { useState } from "react"
-import type { User } from "../../types"
-import { initialUsers } from "../../data"
+import { useState, useEffect } from "react"
+import { userApi } from "../../services/api"
 import Badge from "../ui/Badge"
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(initialUsers)
+  const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
-  const toggleBlock = (id: number) => setUsers(prev => prev.map(u => u.id === id ? { ...u, statut: u.statut === "Actif" ? "Bloqué" : "Actif" } : u))
-  const deleteUser  = (id: number) => setUsers(prev => prev.filter(u => u.id !== id))
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    try {
+      const response = await userApi.getAll()
+      setUsers(response.data)
+    } catch (error) {
+      console.error('Erreur chargement users:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleBlock = async (id: number) => {
+    try {
+      const response = await userApi.toggleBlock(id)
+      setUsers(prev => prev.map(u => u.id === id ? response.data : u))
+    } catch (error) {
+      console.error('Erreur blocage:', error)
+    }
+  }
+
+  const deleteUser = async (id: number) => {
+    try {
+      await userApi.delete(id)
+      setUsers(prev => prev.filter(u => u.id !== id))
+    } catch (error) {
+      console.error('Erreur suppression:', error)
+    }
+  }
 
   const filtered = users.filter(u =>
-    u.nom.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
+    u.name?.toLowerCase().includes(search.toLowerCase()) ||
+    u.email?.toLowerCase().includes(search.toLowerCase())
   )
+
+  if (loading) return <p style={{ padding: 32, color: "#9ca3af" }}>Chargement...</p>
 
   return (
     <div>
@@ -46,13 +78,13 @@ export default function UsersPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{
                       width: 34, height: 34, borderRadius: "50%",
-                      background: u.role === "Admin" ? "#ede9fe" : "#dbeafe",
+                      background: u.role === "admin" ? "#ede9fe" : "#dbeafe",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 13, fontWeight: 700, color: u.role === "Admin" ? "#6d28d9" : "#1e40af"
+                      fontSize: 13, fontWeight: 700, color: u.role === "admin" ? "#6d28d9" : "#1e40af"
                     }}>
-                        {u.nom.split(" ").map((n: string) => n[0]).join("")}
+                      {u.name?.split(" ").map((n: string) => n[0]).join("")}
                     </div>
-                    <span style={{ fontWeight: 600, color: "#1f2937" }}>{u.nom}</span>
+                    <span style={{ fontWeight: 600, color: "#1f2937" }}>{u.name}</span>
                   </div>
                 </td>
                 <td style={{ padding: "14px 16px", color: "#6b7280" }}>{u.email}</td>
@@ -62,7 +94,7 @@ export default function UsersPage() {
                 <td style={{ padding: "14px 16px" }}>
                   <button onClick={() => toggleBlock(u.id)} style={{
                     background: u.statut === "Actif" ? "#fef3c7" : "#dcfce7",
-                    color:      u.statut === "Actif" ? "#92400e" : "#166534",
+                    color: u.statut === "Actif" ? "#92400e" : "#166534",
                     border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", marginRight: 6
                   }}>
                     {u.statut === "Actif" ? "Bloquer" : "Débloquer"}

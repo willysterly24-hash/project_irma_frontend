@@ -69,5 +69,7 @@ export const navItems = [
   { id: 'hotels', label: 'Hotels', icon: '🏨' },
   { id: 'chambres', label: 'Chambres', icon: '🛏️' },
   { id: 'reservations', label: 'Reservations', icon: '📋' },
-  { id: 'users', label: 'Utilisateurs', icon: '👥' }
+  { id: 'users', label: 'Utilisateurs', icon: '👥' },
+  { id: 'avis', label: 'Avis', icon: '⭐' },
+  { id: 'offres', label: 'Offres', icon: '🏷️' }
 ]

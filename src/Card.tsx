@@ -1,4 +1,5 @@
 import { type ReactNode, useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CardProps {
     children: ReactNode;
@@ -81,7 +82,7 @@ export const Card = ({
                             }}
                             className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
                         >
-                            ◀
+                            <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
                             onClick={(e) => {
@@ -90,7 +91,7 @@ export const Card = ({
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
                         >
-                            ▶
+                            <ChevronRight className="w-4 h-4" />
                         </button>
                     </>
                 )}

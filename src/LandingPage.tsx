@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './useAuth';
+import { useDevise } from './useDevise';
+import { formatDateFr } from './utils/date';
 import { Card } from './Card';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { OfferCard } from './OfferCard';
+import { avisApi, offreApi } from './services/api'
 
 const LOGO_SRC = '/src/assets/logo.png';
 const LOGO_FALLBACK = 'IRMA';
@@ -15,7 +18,7 @@ const hotels = [
         id: 1,
         name: 'Le Grand Palais',
         location: 'Paris, France',
-        price: 9999,
+        price: 90999,
         rating: 6.9,
         reviews: 1284,
         category: 'Suite Royale',
@@ -27,7 +30,7 @@ const hotels = [
         id: 2,
         name: 'Radisson Blu Dakar',
         location: 'Dakar, Sénégal',
-        price: 1120,
+        price: 100120,
         rating: 4.3,
         reviews: 842,
         category: 'Chambre Prestige',
@@ -39,7 +42,7 @@ const hotels = [
         id: 3,
         name: 'Burj Al Arab',
         location: 'Dubai, EAU',
-        price: 7590,
+        price: 70590,
         rating: 5.0,
         reviews: 3021,
         category: 'Chambre Royale',
@@ -51,7 +54,7 @@ const hotels = [
         id: 4,
         name: 'Les Tours Jumelles',
         location: 'Brazzaville, Congo',
-        price: 4590,
+        price: 40590,
         rating: 4.2,
         reviews: 567,
         category: 'Villa Exclusive',
@@ -63,7 +66,7 @@ const hotels = [
         id: 5,
         name: 'Park Hyatt',
         location: 'Tokyo, Japon',
-        price: 9459,
+        price: 90459,
         rating: 5.8,
         reviews: 967,
         category: 'Hotel Luxueux',
@@ -75,7 +78,7 @@ const hotels = [
         id: 6,
         name: 'The Savoy',
         location: 'Londres, Angleterre',
-        price: 4259,
+        price: 40259,
         rating: 4.9,
         reviews: 2156,
         category: 'Suite Royale',
@@ -87,7 +90,7 @@ const hotels = [
         id: 7,
         name: 'Four Seasons',
         location: 'Marrakech, Maroc',
-        price: 1859,
+        price: 100859,
         rating: 4.8,
         reviews: 1432,
         category: 'Jardin Suite',
@@ -99,7 +102,7 @@ const hotels = [
         id: 8,
         name: 'Mandarin Oriental',
         location: 'Bangkok, Thaïlande',
-        price: 2950,
+        price: 29050,
         rating: 4.9,
         reviews: 1876,
         category: 'River View Suite',
@@ -111,7 +114,7 @@ const hotels = [
         id: 9,
         name: 'Belmond Copacabana',
         location: 'Rio, Brésil',
-        price: 2659,
+        price: 100659,
         rating: 4.7,
         reviews: 1123,
         category: 'Ocean Front',
@@ -183,6 +186,7 @@ type Hotel = typeof hotels[0];
 function HotelCard({ hotel, onBookingAdded }: { hotel: Hotel; onBookingAdded: () => void }) {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { formatPrice } = useDevise();
     const [isFav, setIsFav] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [bookingData, setBookingData] = useState({ checkin: '', checkout: '', guests: '2' });
@@ -226,7 +230,6 @@ function HotelCard({ hotel, onBookingAdded }: { hotel: Hotel; onBookingAdded: ()
             <Card
                 image={hotel.img}
                 images={hotel.hoverImages}
-                badge={hotel.category}
                 favorite={isFav}
                 onFavoriteToggle={() => setIsFav(!isFav)}
             >
@@ -235,9 +238,21 @@ function HotelCard({ hotel, onBookingAdded }: { hotel: Hotel; onBookingAdded: ()
                 </h3>
                 <p className="text-stone-400 text-sm mb-4">{hotel.location}</p>
                 <div className="flex items-center justify-between pt-4 border-t border-stone-100">
-                    <span className="font-bold">{hotel.price.toLocaleString()} €</span>
-                    <Button onClick={() => setShowModal(true)}>Réserver</Button>
-                </div>
+    <div>
+        <p className="text-stone-400" style={{ fontSize: '10px', letterSpacing: '0.05em' }}>À partir de</p>
+        <span className="font-bold">
+            {formatPrice(hotel.price)}
+            <span className="text-stone-400 font-normal" style={{ fontSize: '11px' }}>/nuit</span>
+        </span>
+    </div>
+    <Button onClick={() => {
+        if (!user) {
+            navigate('/register');
+            return;
+        }
+        setShowModal(true);
+    }}>Réserver</Button>
+</div>
             </Card>
 
             <Modal
@@ -304,6 +319,8 @@ export default function LandingPage() {
     const [showAllHotels, setShowAllHotels] = useState(false);
     const [showBookingsModal, setShowBookingsModal] = useState(false);
     const [bookingsVersion, setBookingsVersion] = useState(0);
+    const [avis, setAvis] = useState<any[]>([]);
+    const [offresAPI, setOffresAPI] = useState<any[]>([])
 
     const userBookings = useMemo<Booking[]>(() => {
         void bookingsVersion;
@@ -313,10 +330,14 @@ export default function LandingPage() {
     }, [user, bookingsVersion]);
 
     useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 40);
-        window.addEventListener('scroll', onScroll);
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll);
+
+    avisApi.getAll().then(res => setAvis(res.data)).catch(() => {});
+     offreApi.getAll().then(res => setOffresAPI(res.data)).catch(() => {});
+
+    return () => window.removeEventListener('scroll', onScroll);
+}, []);
 
     const refreshBookings = () => {
         setBookingsVersion(version => version + 1);
@@ -408,29 +429,20 @@ export default function LandingPage() {
                     </ul>
 
                     <div className="hidden md:flex items-center gap-5">
-                        <button
-                            onClick={() => setShowBookingsModal(true)}
+                        <a href="/login"
+                            className="transition-all duration-200 hover:opacity-90"
                             style={{
                                 color: scrolled ? '#57534E' : 'rgba(255,255,255,0.7)',
-                                fontSize: '11px',
+                                fontSize: '10px',
+                                fontWeight: '500',
                                 letterSpacing: '0.18em',
                                 textTransform: 'uppercase',
-                                transition: 'color 0.2s',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#D4A853';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.color = scrolled ? '#57534E' : 'rgba(255,255,255,0.7)';
                             }}
                         >
-                            Mes Réservations {userBookings.length > 0 && `(${userBookings.length})`}
-                        </button>
-                        <a
-                            href="/register"
+                            Se connecter
+                        </a>
+
+                        <a href="/register"
                             className="transition-all duration-200 hover:opacity-90"
                             style={{
                                 background: '#D4A853',
@@ -487,16 +499,7 @@ export default function LandingPage() {
                                 {label}
                             </a>
                         ))}
-                        <button
-                            onClick={() => {
-                                setShowBookingsModal(true);
-                                setMenuOpen(false);
-                            }}
-                            className="text-stone-500 hover:text-stone-900 transition-colors text-left"
-                            style={{ fontSize: '11px', letterSpacing: '0.18em', textTransform: 'uppercase' }}
-                        >
-                            Mes Réservations {userBookings.length > 0 && `(${userBookings.length})`}
-                        </button>
+                        
                         <a
                             href="/register"
                             className="text-center"
@@ -709,14 +712,14 @@ export default function LandingPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {offers.map((offer) => (
-                            <OfferCard
-                                key={offer.title}
-                                badge={offer.badge}
-                                title={offer.title}
-                                desc={offer.desc}
-                                img={offer.img}
-                                expires={offer.expires}
+                        {(offresAPI.length > 0 ? offresAPI : offers).map((offer) => (
+            <OfferCard
+                key={offer.id || offer.title}
+                badge={offer.badge}
+                title={offer.titre || offer.title}
+                desc={offer.description || offer.desc}
+                img={offer.image ? `http://localhost:3000${offer.image}` : offer.img}
+                expires={formatDateFr(offer.expiration || offer.expires)}
                                 onButtonClick={() => {
                                     document.getElementById('hotels')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
@@ -804,9 +807,9 @@ export default function LandingPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {testimonials.map((t) => (
+                        {(avis.length > 0 ? avis : testimonials).map((t) => (
                             <div
-                                key={t.name}
+                                key={t.id || t.name}
                                 className="bg-white p-8 transition-all duration-300"
                                 style={{ borderRadius: '4px', border: '1px solid #F0EDE8' }}
                                 onMouseEnter={(e) => {
@@ -819,7 +822,7 @@ export default function LandingPage() {
                                 }}
                             >
                                 <div className="flex gap-0.5 mb-5">
-                                    {[...Array(t.rating)].map((_, i) => (
+                                    {[...Array(t.note || t.rating)].map((_, i) => (
                                         <svg key={i} className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                         </svg>
@@ -838,27 +841,36 @@ export default function LandingPage() {
                                     "
                                 </div>
                                 <p className="text-stone-500 mb-7" style={{ fontSize: '14px', lineHeight: '1.75' }}>
-                                    {t.text}
+                                    {t.commentaire || t.text}
                                 </p>
                                 <div className="flex items-center gap-3 pt-5" style={{ borderTop: '1px solid #F0EDE8' }}>
-                                    <div
-                                        className="flex items-center justify-center text-amber-700 font-semibold shrink-0"
-                                        style={{
-                                            width: '38px',
-                                            height: '38px',
-                                            borderRadius: '50%',
-                                            background: '#FEF3C7',
-                                            fontSize: '14px',
-                                        }}
-                                    >
-                                        {t.name.charAt(0)}
-                                    </div>
+                                    {t.user?.photo ? (
+                                        <img
+                                            src={`http://localhost:3000${t.user.photo}`}
+                                            alt={t.nom || t.name}
+                                            className="object-cover shrink-0"
+                                            style={{ width: '38px', height: '38px', borderRadius: '50%' }}
+                                        />
+                                    ) : (
+                                        <div
+                                            className="flex items-center justify-center text-amber-700 font-semibold shrink-0"
+                                            style={{
+                                                width: '38px',
+                                                height: '38px',
+                                                borderRadius: '50%',
+                                                background: '#FEF3C7',
+                                                fontSize: '14px',
+                                            }}
+                                        >
+                                            {(t.nom || t.name || '?').charAt(0)}
+                                        </div>
+                                    )}
                                     <div>
                                         <p className="text-stone-900 font-medium" style={{ fontSize: '13px' }}>
-                                            {t.name}
+                                            {t.nom || t.name}
                                         </p>
                                         <p className="text-stone-400" style={{ fontSize: '11px' }}>
-                                            {t.country} · {t.hotel}
+                                            {t.hotel}
                                         </p>
                                     </div>
                                 </div>

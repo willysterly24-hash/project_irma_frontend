@@ -32,16 +32,16 @@ export const Modal = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={onClose}>
-            <div className={`bg-white w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-sm shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={onClose}>
+            <div className={`bg-white w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col rounded-2xl shadow-2xl`} onClick={(e) => e.stopPropagation()}>
                 {(title || subtitle || showCloseButton) && (
-                    <div className="border-b border-stone-100 px-7 py-6 flex justify-between items-start">
+                    <div className="border-b border-stone-100 px-7 py-6 flex justify-between items-start flex-shrink-0">
                         <div className="pr-4">
                             {subtitle && <p className="text-amber-600 uppercase text-[10px] tracking-widest mb-1">{subtitle}</p>}
                             {title && <h3 className="text-stone-900 font-serif text-2xl font-semibold leading-tight">{title}</h3>}
                         </div>
                         {showCloseButton && (
-                            <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); onClose(); }} className="text-stone-400 hover:text-stone-600 transition-colors">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -49,8 +49,10 @@ export const Modal = ({
                         )}
                     </div>
                 )}
-                <div className="p-7">{children}</div>
+                <div className="p-7 overflow-y-auto flex-1">{children}</div>
             </div>
         </div>
     );
 };
+
+export default Modal;
