@@ -1,19 +1,54 @@
-import { useState } from "react"
-import type { Reservation } from "../../types"
-import { initialReservations } from "../../data"
+import { useState, useEffect } from "react"
+import { reservationApi } from "../../services/api"
 import Badge from "../ui/Badge"
+import { useDevise } from "../../useDevise"
+import { formatDateFr } from "../../utils/date"
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>(initialReservations)
+  const { formatPrice } = useDevise()
+  const [reservations, setReservations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
-  const confirm = (id: number) => setReservations(prev => prev.map(r => r.id === id ? { ...r, statut: "Confirmé" } : r))
-  const cancel  = (id: number) => setReservations(prev => prev.map(r => r.id === id ? { ...r, statut: "Annulé"   } : r))
+  useEffect(() => {
+    fetchReservations()
+  }, [])
+
+  const fetchReservations = async () => {
+    try {
+      const response = await reservationApi.getAll()
+      setReservations(response.data)
+    } catch (error) {
+      console.error('Erreur chargement réservations:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const confirm = async (id: number) => {
+    try {
+      const response = await reservationApi.confirmer(id)
+      setReservations(prev => prev.map(r => r.id === id ? response.data : r))
+    } catch (error) {
+      console.error('Erreur confirmation:', error)
+    }
+  }
+
+  const cancel = async (id: number) => {
+    try {
+      const response = await reservationApi.annuler(id)
+      setReservations(prev => prev.map(r => r.id === id ? response.data : r))
+    } catch (error) {
+      console.error('Erreur annulation:', error)
+    }
+  }
 
   const filtered = reservations.filter(r =>
-    r.client.toLowerCase().includes(search.toLowerCase()) ||
-    r.hotel.toLowerCase().includes(search.toLowerCase())
+    r.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.chambre?.hotel?.nom?.toLowerCase().includes(search.toLowerCase())
   )
+
+  if (loading) return <p style={{ padding: 32, color: "#9ca3af" }}>Chargement...</p>
 
   return (
     <div>
@@ -42,17 +77,17 @@ export default function ReservationsPage() {
           <tbody>
             {filtered.map(r => (
               <tr key={r.id} style={{ borderBottom: "1px solid #f9fafb" }}>
-                <td style={{ padding: "13px 14px", fontWeight: 600, color: "#1f2937" }}>{r.client}</td>
-                <td style={{ padding: "13px 14px", color: "#6b7280" }}>{r.hotel}</td>
-                <td style={{ padding: "13px 14px", color: "#374151" }}>{r.chambre}</td>
-                <td style={{ padding: "13px 14px", color: "#6b7280" }}>{r.arrivee}</td>
-                <td style={{ padding: "13px 14px", color: "#6b7280" }}>{r.depart}</td>
-                <td style={{ padding: "13px 14px", fontWeight: 700, color: "#3B82F6" }}>€ {r.montant.toLocaleString()}</td>
+                <td style={{ padding: "13px 14px", fontWeight: 600, color: "#1f2937" }}>{r.user?.name}</td>
+                <td style={{ padding: "13px 14px", color: "#6b7280" }}>{r.chambre?.hotel?.nom}</td>
+                <td style={{ padding: "13px 14px", color: "#374151" }}>{r.chambre?.type}</td>
+                <td style={{ padding: "13px 14px", color: "#6b7280" }}>{formatDateFr(r.arrivee)}</td>
+                <td style={{ padding: "13px 14px", color: "#6b7280" }}>{formatDateFr(r.depart)}</td>
+                <td style={{ padding: "13px 14px", fontWeight: 700, color: "#3B82F6" }}>{formatPrice(Number(r.montant))}</td>
                 <td style={{ padding: "13px 14px" }}><Badge label={r.statut} /></td>
                 <td style={{ padding: "13px 14px" }}>
                   {r.statut === "En attente" && <>
                     <button onClick={() => confirm(r.id)} style={{ background: "#dcfce7", color: "#166534", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", marginRight: 4 }}>Confirmer</button>
-                    <button onClick={() => cancel(r.id)}  style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
+                    <button onClick={() => cancel(r.id)} style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
                   </>}
                   {r.statut === "Confirmé" && (
                     <button onClick={() => cancel(r.id)} style={{ background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
@@ -66,7 +101,9 @@ export default function ReservationsPage() {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <p style={{ textAlign: "center", color: "#9ca3af", padding: 32, fontSize: 14 }}>Aucun résultat pour "{search}"</p>
+          <p style={{ textAlign: "center", color: "#9ca3af", padding: 32, fontSize: 14 }}>
+            {search ? `Aucun résultat pour "${search}"` : "Aucune réservation"}
+          </p>
         )}
       </div>
     </div>

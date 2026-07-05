@@ -1,67 +1,69 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { type User, MOCK_USERS, ROLE_REDIRECTS, type Role } from './Users'
 import { AuthContext } from './auth-context'
+import { authApi } from './services/api'
 
-let usersStore: User[] = [...MOCK_USERS]
+const ROLE_REDIRECTS: Record<string, string> = {
+  admin: '/dashboard/admin',
+  user: '/dashboards/user',
+}
 
-const getStoredUser = (): User | null => {
+const getStoredUser = () => {
   const stored = localStorage.getItem('auth_user')
   return stored ? JSON.parse(stored) : null
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => getStoredUser())
+  const [user, setUser] = useState(() => getStoredUser())
   const [loading, setLoading] = useState(false)
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true)
-    await new Promise(res => setTimeout(res, 800))
+    try {
+      const response = await authApi.login(email, password)
+      const data = response.data
 
-    const found = usersStore.find(
-      existingUser =>
-        existingUser.email.toLowerCase() === email.toLowerCase() &&
-        existingUser.password === password
-    )
+      // Stocker le token ET les infos user ensemble
+      const authUser = {
+        ...data.user,
+        access_token: data.access_token,
+      }
 
-    if (!found) {
+      setUser(authUser)
+      localStorage.setItem('auth_user', JSON.stringify(authUser))
       setLoading(false)
-      return { success: false, error: 'Email ou mot de passe incorrect.' }
+      return { success: true, redirect: ROLE_REDIRECTS[data.user.role] }
+    } catch (error: any) {
+      setLoading(false)
+      const message = error.response?.data?.message || 'Email ou mot de passe incorrect.'
+      return { success: false, error: message }
     }
+  }, [])
 
-    setUser(found)
-    localStorage.setItem('auth_user', JSON.stringify(found))
-    setLoading(false)
-    return { success: true, redirect: ROLE_REDIRECTS[found.role] }
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    setLoading(true)
+    try {
+      const response = await authApi.register(name, email, password)
+      const data = response.data
+
+      const authUser = {
+        ...data.user,
+        access_token: data.access_token,
+      }
+
+      setUser(authUser)
+      localStorage.setItem('auth_user', JSON.stringify(authUser))
+      setLoading(false)
+      return { success: true }
+    } catch (error: any) {
+      setLoading(false)
+      const message = error.response?.data?.message || 'Erreur lors de la création du compte.'
+      return { success: false, error: message }
+    }
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
     localStorage.removeItem('auth_user')
-  }, [])
-
-  const register = useCallback(async (name: string, email: string, password: string) => {
-    setLoading(true)
-    await new Promise(res => setTimeout(res, 800))
-
-    const exists = usersStore.find(existingUser => existingUser.email.toLowerCase() === email.toLowerCase())
-    if (exists) {
-      setLoading(false)
-      return { success: false, error: 'Un compte avec cet email existe déjà.' }
-    }
-
-    const newUser: User = {
-      id: String(Date.now()),
-      name,
-      email,
-      password,
-      role: 'user' as Role
-    }
-
-    usersStore = [...usersStore, newUser]
-    setUser(newUser)
-    localStorage.setItem('auth_user', JSON.stringify(newUser))
-    setLoading(false)
-    return { success: true }
   }, [])
 
   const getRedirect = useCallback(() => {
@@ -78,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         register,
-        getRedirect
+        getRedirect,
       }}
     >
       {children}

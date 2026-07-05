@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './AuthContext';
+import { DeviseProvider } from './DeviseProvider';
 import { useAuth } from './useAuth';
 import { ProtectedRoute } from './Protectedroute';
 
@@ -9,6 +10,7 @@ import Login from './Login';
 import Register from './Register';
 import ForgotPassword from './ForgotPassword';
 import Dashboards from './Dashboards';
+import ReservationFlow from './ReservationFlow';
 import './index.css';
 
 function AppRoutes() {
@@ -36,6 +38,12 @@ function AppRoutes() {
                 </ProtectedRoute>
             } />
 
+            <Route path="/reservation/:chambreId" element={
+                <ProtectedRoute allowedRoles={['user']}>
+                    <ReservationFlow />
+                </ProtectedRoute>
+            } />
+
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
@@ -46,7 +54,9 @@ export default function App() {
         <div className="font-body bg-white text-navy overflow-x-hidden">
             <BrowserRouter>
                 <AuthProvider>
-                    <AppRoutes />
+                    <DeviseProvider>
+                        <AppRoutes />
+                    </DeviseProvider>
                 </AuthProvider>
             </BrowserRouter>
         </div>

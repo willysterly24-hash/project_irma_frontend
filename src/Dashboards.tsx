@@ -1,85 +1,53 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from './useAuth'
-import Sidebar from './Sidebar'
+import HamburgerMenu from './HamburgerMenu'
+import AccueilPage from './AccueilPage'
+import HotelsListPage from './HotelsListPage'
+import HotelDetailPage from './HotelDetailPage'
 import ReservationsEnCours from './ReservationEnCours'
 import Historique from './Historiques'
 import Profile from './profile'
+import Avis from './Avis'
+import FavorisPage from './FavorisPage'
+import { reservationApi, userApi } from './services/api'
 
-type DashboardPage = 'dashboard' | 'reservations' | 'historique' | 'profile'
-
-interface ReservationItem {
-  id: string
-  guest: string
-  email: string
-  phone: string
-  room: string
-  roomType: string
-  checkIn: string
-  checkOut: string
-  nights: number
-  adults: number
-  children: number
-  status: string
-  amount: number
-  pricePerNight: number
-  avatar: string
-  specialRequests?: string
-}
-
-interface ProfileData {
-  name: string
-  email: string
-  phone: string
-  address: string
-  avatar: string
-}
-
-const initialReservations: ReservationItem[] = []
-
-const defaultProfile: ProfileData = {
-  name: 'Jean Dupont',
-  email: 'jean.dupont@email.com',
-  phone: '77 123 45 67',
-  address: 'Dakar, Senegal',
-  avatar: 'JD'
-}
+type ClientPage = 'accueil' | 'hotelsList' | 'hotelDetail' | 'reservations' | 'historique' | 'profile' | 'avis' | 'favoris'
 
 export default function Dashboard() {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const navigate = useNavigate()
 
-  const [currentPage, setCurrentPage] = useState<DashboardPage>('reservations')
-  const [reservations, setReservations] = useState<ReservationItem[]>(initialReservations)
-  const [profile, setProfile] = useState<ProfileData>(() => {
-    const saved = localStorage.getItem('profile')
-    return saved ? (JSON.parse(saved) as ProfileData) : defaultProfile
-  })
+  // L'URL (?page=...) est la seule source de vérité pour la page affichée.
+  // Ça permet aux boutons précédent/suivant du navigateur de fonctionner correctement,
+  // et évite de retomber sur une ancienne page après une reconnexion (sessionStorage retiré).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const currentPage = (searchParams.get('page') as ClientPage) || 'accueil'
+  const selectedHotelId = searchParams.get('hotelId') ? Number(searchParams.get('hotelId')) : null
 
-  const handleUpdateProfile = (newProfile: ProfileData) => {
-    setProfile(newProfile)
-    localStorage.setItem('profile', JSON.stringify(newProfile))
-  }
+  // Retenu seulement pour savoir où revenir depuis le détail d'un hôtel (pas dans l'URL)
+  const previousPageRef = useRef<ClientPage>('accueil')
 
-  const handleAddReservation = (newReservation: ReservationItem) => {
-    setReservations([newReservation, ...reservations])
-  }
+  const [reservations, setReservations] = useState<any[]>([])
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const handleUpdateReservation = (updatedReservation: ReservationItem) => {
-    setReservations(
-      reservations.map(res => (res.id === updatedReservation.id ? updatedReservation : res))
-    )
-  }
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-  const handleCancelReservation = (id: string) => {
-    setReservations(
-      reservations.map(res => (res.id === id ? { ...res, status: 'Annulee' } : res))
-    )
-  }
-
-  const handleDeleteReservation = (id: string) => {
-    if (confirm('Supprimer definitivement cette reservation ?')) {
-      setReservations(reservations.filter(res => res.id !== id))
+  const fetchData = async () => {
+    try {
+      const [resRes, profileRes] = await Promise.all([
+        reservationApi.getByUser(Number(user?.id)),
+        userApi.getMe(),
+      ])
+      setReservations(resRes.data)
+      setProfile(profileRes.data)
+    } catch (error) {
+      console.error('Erreur chargement:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -88,67 +56,102 @@ export default function Dashboard() {
     navigate('/login')
   }
 
-  const formatPrice = (price: number) => price.toLocaleString() + ' FCFA'
+  const goToPage = (page: ClientPage, hotelId?: number) => {
+    const params: Record<string, string> = { page }
+    if (hotelId !== undefined) params.hotelId = String(hotelId)
+    setSearchParams(params)
+  }
 
-  const totalReservations = reservations.filter(
-    r => r.status !== 'Terminee' && r.status !== 'Annulee'
-  ).length
-  const totalRevenue = reservations.reduce((sum, r) => sum + r.amount, 0)
-  const completedReservations = reservations.filter(r => r.status === 'Terminee').length
-  const cancelledReservations = reservations.filter(r => r.status === 'Annulee').length
+  const handleSelectHotel = (hotelId: number) => {
+    previousPageRef.current = currentPage
+    goToPage('hotelDetail', hotelId)
+  }
+
+  const handlePageChange = (page: ClientPage) => {
+    goToPage(page)
+  }
+
+  // Scroll vers une section de la page accueil. Si on n'est pas sur "accueil",
+  // on y navigue d'abord, puis on scrolle une fois le DOM rendu.
+  const handleScrollToSection = (sectionId: string) => {
+    if (currentPage !== 'accueil') {
+      goToPage('accueil')
+      setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' })
+      }, 50)
+    } else {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
+  const handleOpenFavoris = () => {
+    goToPage('favoris')
+  }
+
+  const activeReservations = reservations.filter(r => r.statut !== 'Annulé')
+
+  if (loading) return <div className="flex min-h-screen items-center justify-center">Chargement...</div>
 
   return (
-    <div className="flex min-h-screen bg-gray-50/50">
-      <Sidebar activePage={currentPage} onPageChange={setCurrentPage} onLogout={handleLogout} />
-      <main className="flex-1 overflow-y-auto p-6">
-        {currentPage === 'dashboard' && (
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Tableau de bord</h1>
-            <p className="text-gray-500">Bienvenue, {profile.name}</p>
+    <div className="min-h-screen bg-gray-50/50">
+      <HamburgerMenu
+        activePage={currentPage}
+        onPageChange={handlePageChange}
+        onLogout={handleLogout}
+        onScrollToSection={handleScrollToSection}
+        onOpenFavoris={handleOpenFavoris}
+      />
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-xl p-5 shadow-sm border">
-                <p className="text-sm text-gray-500">Reservations en cours</p>
-                <p className="text-2xl font-bold text-amber-600">{totalReservations}</p>
-              </div>
-              <div className="bg-white rounded-xl p-5 shadow-sm border">
-                <p className="text-sm text-gray-500">Revenu total</p>
-                <p className="text-2xl font-bold text-green-600">{formatPrice(totalRevenue)}</p>
-              </div>
-              <div className="bg-white rounded-xl p-5 shadow-sm border">
-                <p className="text-sm text-gray-500">Reservations terminees</p>
-                <p className="text-2xl font-bold text-blue-600">{completedReservations}</p>
-              </div>
-              <div className="bg-white rounded-xl p-5 shadow-sm border">
-                <p className="text-sm text-gray-500">Reservations annulees</p>
-                <p className="text-2xl font-bold text-red-600">{cancelledReservations}</p>
-              </div>
-            </div>
-          </div>
+      <main>
+        {currentPage === 'accueil' && (
+          <AccueilPage
+            onSelectHotel={handleSelectHotel}
+            onViewAllHotels={() => goToPage('hotelsList')}
+          />
+        )}
+
+        {currentPage === 'hotelsList' && (
+          <HotelsListPage onSelectHotel={handleSelectHotel} />
+        )}
+
+        {currentPage === 'hotelDetail' && selectedHotelId && (
+          <HotelDetailPage
+            hotelId={selectedHotelId}
+            onBack={() => goToPage(previousPageRef.current)}
+          />
         )}
 
         {currentPage === 'reservations' && (
-          <ReservationsEnCours
-            reservations={reservations}
-            onAddReservation={handleAddReservation}
-            onUpdateReservation={handleUpdateReservation}
-            onCancelReservation={handleCancelReservation}
-          />
+          <div className="p-6">
+            <ReservationsEnCours
+              reservations={activeReservations}
+              profile={profile}
+              onRefresh={fetchData}
+              onBrowseHotels={() => goToPage('hotelsList')}
+            />
+          </div>
         )}
 
         {currentPage === 'historique' && (
-          <Historique
-            reservations={reservations.filter(r => r.status === 'Terminee' || r.status === 'Annulee')}
-            onDeleteReservation={handleDeleteReservation}
-          />
+          <div className="p-6">
+            <Historique reservations={reservations.filter(r => r.statut === 'Annulé')} />
+          </div>
         )}
 
-        {currentPage === 'profile' && (
-          <Profile
-            profile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            onLogout={handleLogout}
-          />
+        {currentPage === 'profile' && profile && (
+          <div className="p-6">
+            <Profile profile={profile} onUpdateProfile={(updated) => setProfile(updated)} onLogout={handleLogout} />
+          </div>
+        )}
+
+        {currentPage === 'avis' && (
+          <div className="p-6">
+            <Avis />
+          </div>
+        )}
+
+        {currentPage === 'favoris' && (
+          <FavorisPage onSelectHotel={handleSelectHotel} />
         )}
       </main>
     </div>
